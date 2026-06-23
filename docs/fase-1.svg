@@ -1,0 +1,156 @@
+<svg viewBox="0 0 700 415" xmlns="http://www.w3.org/2000/svg">
+<title>Fase 1 · GY-521 / MPU-6050 ↔ ESP32 WROOM-32 · Bus I²C</title>
+
+<!-- Fondo -->
+<rect width="700" height="415" fill="#0d1520"/>
+
+<!-- Título -->
+<text font-family="monospace" font-size="12" font-weight="bold" fill="#9ab" x="350" y="22" text-anchor="middle">Fase 1 · GY-521 (MPU-6050) ↔ ESP32 WROOM-32 · Bus I²C</text>
+
+<!-- ── Protoboard ───────────────────────────────────────────── -->
+<rect x="60" y="35" width="580" height="300" rx="8" fill="#f0ede0" stroke="#c8c0a8" stroke-width="1"/>
+
+<!-- Riel izquierdo -->
+<rect x="60" y="35" width="32" height="300" fill="#e8e4d8" stroke="#c8c0a8" stroke-width="0.5"/>
+<line x1="73"  y1="40" x2="73"  y2="330" stroke="#cc2020" stroke-width="2"   stroke-dasharray="4 2"/>
+<line x1="84"  y1="40" x2="84"  y2="330" stroke="#2050cc" stroke-width="2"   stroke-dasharray="4 2"/>
+<text font-family="monospace" font-size="8" fill="#cc2020" x="73"  y="33" text-anchor="middle">+</text>
+<text font-family="monospace" font-size="8" fill="#2050cc" x="84"  y="33" text-anchor="middle">−</text>
+
+<!-- Riel derecho -->
+<rect x="608" y="35" width="32" height="300" fill="#e8e4d8" stroke="#c8c0a8" stroke-width="0.5"/>
+<line x1="619" y1="40" x2="619" y2="330" stroke="#cc2020" stroke-width="2"   stroke-dasharray="4 2"/>
+<line x1="631" y1="40" x2="631" y2="330" stroke="#2050cc" stroke-width="2"   stroke-dasharray="4 2"/>
+<text font-family="monospace" font-size="8" fill="#cc2020" x="619" y="33" text-anchor="middle">+</text>
+<text font-family="monospace" font-size="8" fill="#2050cc" x="631" y="33" text-anchor="middle">−</text>
+
+<!-- Gap central -->
+<rect x="326" y="35" width="32" height="300" fill="#ccc8b4" opacity="0.8"/>
+
+<!-- Etiquetas de columnas -->
+<text font-family="monospace" font-size="7" fill="#aaa" x="115" y="32" text-anchor="middle">a</text>
+<text font-family="monospace" font-size="7" fill="#aaa" x="153" y="32" text-anchor="middle">b</text>
+<text font-family="monospace" font-size="7" fill="#aaa" x="191" y="32" text-anchor="middle">c</text>
+<text font-family="monospace" font-size="7" fill="#aaa" x="229" y="32" text-anchor="middle">d</text>
+<text font-family="monospace" font-size="7" fill="#aaa" x="267" y="32" text-anchor="middle">e</text>
+<text font-family="monospace" font-size="7" fill="#aaa" x="374" y="32" text-anchor="middle">f</text>
+<text font-family="monospace" font-size="7" fill="#aaa" x="412" y="32" text-anchor="middle">g</text>
+<text font-family="monospace" font-size="7" fill="#aaa" x="450" y="32" text-anchor="middle">h</text>
+<text font-family="monospace" font-size="7" fill="#aaa" x="488" y="32" text-anchor="middle">i</text>
+<text font-family="monospace" font-size="7" fill="#aaa" x="526" y="32" text-anchor="middle">j</text>
+
+<!-- ── ESP32 (rows 49-63) · y=49..188 ─────────────────────── -->
+<!-- y(row) = 40 + (65-row)*9   ┐                              -->
+<!-- 3V3=row63→y=58  GND=row62→y=67                            -->
+<!-- D21=row53→y=148  D22=row50→y=175                          -->
+<rect x="96" y="49" width="502" height="139" rx="6" fill="#1a3a7a" stroke="#4a7adf" stroke-width="1.5"/>
+<text font-family="sans-serif" font-size="14" font-weight="bold" fill="#7aaada" x="347" y="85"  text-anchor="middle">ESP32 WROOM-32</text>
+<text font-family="sans-serif" font-size="9"                fill="#3a5a8a" x="347" y="100" text-anchor="middle">USB-C ↑   ·   pines izq. (arriba→abajo): 3V3 · GND · D15 … D21 … D22 · D23</text>
+<text font-family="sans-serif" font-size="8"                fill="#2a4a7a" x="347" y="114" text-anchor="middle">pines der.: GND · D13 · D12 · D14 · D27 · D26 · D25 · D33 · D32 …  (PWM Fases 2-3)</text>
+
+<!-- Stubs pines izquierda del ESP32 -->
+<rect x="92" y="55" width="4" height="6" rx="1" fill="#cc2020"/>
+<text font-family="monospace" font-size="7" fill="#cc2020" x="90" y="62" text-anchor="end">3V3</text>
+
+<rect x="92" y="64" width="4" height="6" rx="1" fill="#2050cc"/>
+<text font-family="monospace" font-size="7" fill="#7090b0" x="90" y="71" text-anchor="end">GND</text>
+
+<!-- Pines intermedios (no usados en Fase 1) -->
+<text font-family="monospace" font-size="6" fill="#2a4a6a" x="97" y="110" text-anchor="start">· D15 · D2 · D4 · RX2 · TX2 · D5 · D18 · D19 ·</text>
+
+<rect x="92" y="144" width="4" height="6" rx="1" fill="#1d8e5a"/>
+<text font-family="monospace" font-size="7" fill="#1d8e5a" x="90" y="151" text-anchor="end">D21</text>
+<text font-family="monospace" font-size="6" fill="#156040" x="160" y="151">(SDA · GPIO21)</text>
+
+<rect x="92" y="171" width="4" height="6" rx="1" fill="#159060"/>
+<text font-family="monospace" font-size="7" fill="#159060" x="90" y="178" text-anchor="end">D22</text>
+<text font-family="monospace" font-size="6" fill="#106040" x="160" y="178">(SCL · GPIO22)</text>
+
+<!-- GPIO Fase 2-3 en el lado derecho del ESP32 -->
+<text font-family="monospace" font-size="7" fill="#4a6a8a" x="597" y="78" text-anchor="end">D27 · PWM M1</text>
+<text font-family="monospace" font-size="7" fill="#4a6a8a" x="597" y="90" text-anchor="end">D26 · PWM M2</text>
+<text font-family="monospace" font-size="7" fill="#4a6a8a" x="597" y="102" text-anchor="end">D25 · PWM M3</text>
+<text font-family="monospace" font-size="7" fill="#4a6a8a" x="597" y="114" text-anchor="end">D32 · PWM M4</text>
+<text font-family="monospace" font-size="6" fill="#2a4a6a" x="597" y="128" text-anchor="end">(reservados · Fases 2-3)</text>
+
+<!-- ── Gap entre ESP32 y GY-521 ────────────────────────────── -->
+<text font-family="monospace" font-size="8" fill="#666" x="347" y="204" text-anchor="middle">· · · gap ≈ 3 filas libres · · ·</text>
+
+<!-- ── GY-521 (rows 38-45) · y=214..283 ───────────────────── -->
+<!-- VCC=row45→y=220  GND=row44→y=229  SCL=row43→y=238         -->
+<!-- SDA=row42→y=247  XDA=row41→y=256  XCL=row40→y=265         -->
+<!-- AD0=row39→y=274  INT=row38→y=283                           -->
+<rect x="96" y="214" width="222" height="73" rx="5" fill="#0a3828" stroke="#1a9e65" stroke-width="1.5"/>
+<text font-family="sans-serif" font-size="11" font-weight="bold" fill="#3dbb7a" x="207" y="230" text-anchor="middle">GY-521 · MPU-6050</text>
+
+<!-- Etiquetas pines GY-521 (dentro del bloque, lado izq) -->
+<text font-family="monospace" font-size="7" fill="#cc2020" x="100" y="227">VCC</text>
+<text font-family="monospace" font-size="7" fill="#7090b0" x="100" y="236">GND</text>
+<text font-family="monospace" font-size="7" fill="#159060" x="100" y="245">SCL</text>
+<text font-family="monospace" font-size="7" fill="#1d8e5a" x="100" y="254">SDA</text>
+<text font-family="monospace" font-size="7" fill="#2a3a2a" x="100" y="263">XDA  ←</text>
+<text font-family="monospace" font-size="7" fill="#2a3a2a" x="100" y="272">XCL  ←</text>
+<text font-family="monospace" font-size="7" fill="#7090b0" x="100" y="281">AD0</text>
+<text font-family="monospace" font-size="7" fill="#2a3a2a" x="147" y="263">sin conectar</text>
+<text font-family="monospace" font-size="7" fill="#2a3a2a" x="147" y="272">sin conectar</text>
+<text font-family="monospace" font-size="7" fill="#2a3a2a" x="147" y="289">INT  ← sin conectar</text>
+
+<!-- Zona libre (derecha, mismas filas) -->
+<rect x="358" y="214" width="240" height="73" rx="4" fill="none" stroke="#333" stroke-width="0.5" stroke-dasharray="3 3"/>
+<text font-family="monospace" font-size="9" fill="#333" x="478" y="254" text-anchor="middle">libre · Fases 2-3</text>
+
+<!-- ════════ CABLES (5 conexiones) ═══════════════════════════ -->
+
+<!-- 1. VCC → 3V3  (rojo · por riel +) -->
+<path d="M 96 58 H 73 V 220 H 96"
+      fill="none" stroke="#cc2020" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="73" cy="58"  r="3" fill="#cc2020"/>
+<circle cx="73" cy="220" r="3" fill="#cc2020"/>
+
+<!-- 2. GND → GND  (azul oscuro · por riel −) -->
+<path d="M 96 67 H 84 V 229 H 96"
+      fill="none" stroke="#2050cc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="84" cy="67"  r="3" fill="#2050cc"/>
+<circle cx="84" cy="229" r="3" fill="#2050cc"/>
+
+<!-- 3. D22 → SCL  (verde · baja por col b, x=153, a través del gap) -->
+<line x1="153" y1="171" x2="153" y2="238"
+      stroke="#159060" stroke-width="2.5" stroke-linecap="round"/>
+<circle cx="153" cy="174" r="3" fill="#159060"/>
+<circle cx="153" cy="238" r="3" fill="#159060"/>
+
+<!-- 4. D21 → SDA  (azul teal · baja por col c, x=191) -->
+<line x1="191" y1="148" x2="191" y2="247"
+      stroke="#1d8e5a" stroke-width="2.5" stroke-linecap="round"/>
+<circle cx="191" cy="148" r="3" fill="#1d8e5a"/>
+<circle cx="191" cy="247" r="3" fill="#1d8e5a"/>
+
+<!-- 5. AD0 → GND  (azul punteado · al riel −) -->
+<path d="M 96 274 H 84"
+      fill="none" stroke="#2050cc" stroke-width="2" stroke-dasharray="5 3" stroke-linecap="round"/>
+<circle cx="84" cy="274" r="2.5" fill="#2050cc" opacity="0.7"/>
+
+<!-- ══ Zona inferior libre ══════════════════════════════════ -->
+<rect x="96" y="296" width="502" height="34" rx="4" fill="none" stroke="#2a3a2a" stroke-width="0.5" stroke-dasharray="3 3"/>
+<text font-family="monospace" font-size="8" fill="#2a3a2a" x="347" y="317" text-anchor="middle">espacio libre · Fases 2-3 (MOSFETs IRLZ44N · diodos 1N5819)</text>
+
+<!-- ══ LEYENDA ════════════════════════════════════════════════ -->
+<text font-family="monospace" font-size="8" font-weight="bold" fill="#778" x="60" y="357">Cables Fase 1:</text>
+<line x1="155" y1="353" x2="178" y2="353" stroke="#cc2020" stroke-width="2.5"/>
+<text font-family="monospace" font-size="8" fill="#cc2020" x="182" y="357">VCC → 3V3 (riel+)</text>
+
+<line x1="295" y1="353" x2="318" y2="353" stroke="#2050cc" stroke-width="2.5"/>
+<text font-family="monospace" font-size="8" fill="#2050cc" x="322" y="357">GND → GND (riel−)</text>
+
+<line x1="440" y1="353" x2="463" y2="353" stroke="#159060" stroke-width="2.5"/>
+<text font-family="monospace" font-size="8" fill="#159060" x="467" y="357">SCL → D22 (col b)</text>
+
+<line x1="155" y1="370" x2="178" y2="370" stroke="#1d8e5a" stroke-width="2.5"/>
+<text font-family="monospace" font-size="8" fill="#1d8e5a" x="182" y="374">SDA → D21 (col c)</text>
+
+<line x1="295" y1="370" x2="318" y2="370" stroke="#2050cc" stroke-width="2" stroke-dasharray="5 3"/>
+<text font-family="monospace" font-size="8" fill="#2050cc" x="322" y="374">AD0 → GND (fija dir. 0x68)</text>
+
+<text font-family="monospace" font-size="8" fill="#334" x="60" y="390">Pines no usados (XDA · XCL · INT): sin conectar.</text>
+<text font-family="monospace" font-size="8" fill="#334" x="60" y="403">SCL y SDA bajan verticalmente por columnas b y c a través del gap libre.</text>
+</svg>
