@@ -1,24 +1,78 @@
 /*
-  microquad - Fase 1 / Etapa 1: Escaner I2C + WHO_AM_I
-  Plataforma: ESP32 WROOM-32
+  microquad - Fase 1 / Etapa 2: Estimador de actitud (roll y pitch)
+  Plataforma: ESP32 WROOM-32  (entorno esp32, por defecto)
+  Sensor:     MPU-6050 / GY-521 por I2C (SDA=GPIO21, SCL=GPIO22, AD0->GND => 0x68)
 
-  PROPOSITO
-  - Confirmar que la GY-521 esta presente en el bus (prueba T1).
-  - Confirmar su identidad leyendo el registro WHO_AM_I (prueba T2).
+  QUE HACE
+    1. Lee los 6 ejes crudos y los convierte a unidades fisicas (g y deg/s).
+    2. Calibra el bias del giroscopio (sensor inmovil) y lo resta.
+    3. Calcula angulo por acelerometro (gravedad) y por giroscopio (integracion).
+    4. Fusiona ambos con un filtro complementario.
+    5. Corre a dt fijo (200 Hz) con micros(); mide el dt real.
 
-  COMO USARLO
-  Este archivo vive en tools/ para que PlatformIO NO lo compile junto al
-  estimador. Para la Etapa 1, copia su contenido a src/main.cpp, flashea,
-  verifica T1/T2 en el monitor serie (115200), y luego restaura el
-  src/main.cpp del estimador para la Etapa 2.
+  La telemetria por serial imprime, en este orden, las variables utiles para
+  las pruebas T3-T8 (ver docs/01-imu.md).
+
+  NOTA DE SIGNOS: si al inclinar fisicamente el angulo fusionado se va al
+  lado contrario o se dispara, invierte el signo del termino de giroscopio
+  del eje afectado (gxd o gyd). Es el ajuste tipico de convencion de ejes.
 */
 
 #include <Arduino.h>  // Trae entorno arduino (tipo, funciones de tiempo, Serial).
 #include <Wire.h>  // Wire.h es la libreria de arduino que permite la comunicación I2C, genera las señales de reloj en SCL, maneja el bit de start/stop y detecta el ACK del esclavo
 
-static const uint8_t MPU_ADDR = 0x68;  // ADO -> GND. Dirección I2C del MPU6050
+// Registro interno del chip donde vive el identificador WHO_AM_I
+static const uint8_t MPU_ADDR = 0x68; /* AD0 - GND. Direcció del chip en el bus I2C, es el "número
+                                         de casa" de la IMU en el bus compartido*/
 static const uint8_t REG_WHO_AM_I =
-    0x75;  // Registro interno del chip donde vive el identificador WHO_AM_I
+    0X75; /* Casillero de lectura, contiene el número de identidad del chip */
+static const uint8_t REG_PWR_MGMT_1 =
+    0x6B; /* "Power Management 1". Controla la energía, escribir aquí despierta al sensor para que
+             pueda entregar información */
+static const uint8_t REG_CONFIG =
+    0x1A; /* Configuración general. En el código lo usamos para el DLPF (Digital Low-Pass Filter),
+             filtro digital interno que suaviza el ruido mecánico antes de que el dato salga */
+static const uint8_t REG_GYRO_CONFIG =
+    0x1B; /* Configuración del Giroscopio. principalmente su fondo de escala (±250, ±500, ±1000 o
+             ±2000 °/s), 0x00 para dejar ±250 (velocidad angular máxima que el sensor medirá), fija
+             la sensibilidad 131 LSB/°·s */
+static const uint8_t REG_ACCEL_CONFIG =
+    0x1C; /* Configura el Acelerómetro. fondo de escala (±2, ±4, ±8 o ±16 g), en 0x00 fijamos ±2g
+             (máximo rango de aceleración a medir, 1g ≈ 9.81 m/s²) */
+static const uint8_t REG_ACCEL_XOUT_H =
+    0x3B; /* A partir de aquí, los 14 casilleros consecutivos contienen en orden accel X/Y/Z (6
+             bytes), temperatura (2 bytes), gyro X/Y/Z (6 bytes) */
+
+// Sensibilidades de los fondos de escala por defecto:
+//   accel +/-2 g     -> 16384 LSB/g
+//   gyro  +/-250 deg -> 131   LSB/(deg/s)
+/*
+   El sensor mide con un ADC de 16 bits con signo: cada eje te da un número entero entre -32768 y
+   32768. Estos números son cuentas, no son unidades físicas. LSB significa "least significant bit",
+   el escalon más pequeño que el ADC puede distinguir. ¿Cuántas cuentas equivalen a 1g? Depende del
+   fondo de escala. El acelerometro está configurado en ±2g, el rango de 16bits va desde −2g a +2g.
+   32768 cuentas / 2g = 16384 cuentas/g.
+
+   Lo mismo para el giroscopio, a fondo de escala ±250 °/s, 32768 / 250 = 131 cuentas por cada °/s
+   */
+static const float ACC_LSB_PER_G = 16384.0f;
+static const float GYR_LSB_PER_DPS = 131.0f;
+
+// ---------- Lazo a dt fijo ----------
+static const uint32_t LOOP_HZ = 200;                  // Tasa objetivo
+static const uint32_t LOOP_US = 1000000UL / LOOP_HZ;  // Periodo 5000us
+
+// ---------- Filtro complementario ----------
+// alpha alto  -> mas peso al giroscopio (corto plazo, suave/rapido)
+// 1 - alpha   -> peso al acelerometro   (largo plazo, corrige deriva)
+// constante de tiempo:  tau = alpha*dt/(1-alpha)
+static const float ALPHA = 0.98f;
+
+// ---------- Estado ----------
+float gyroBiasX = 0, gyroBiasY = 0, gyroBiasY = 0;  // Bias del gyro (deg/s)
+float rollFused = 0, pitchFused = 0;                // Angulos fusionados (deg)
+float rollGyro = 0, pitchGyro = 0;                  // Solo gyro (evidencia T5)
+uint32_t tPrev = 0;
 
 void setup() {
     Serial.begin(115200);  // Abrimos puerto a 115200 baudios

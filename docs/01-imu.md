@@ -58,7 +58,7 @@ Fija el último bit de la dirección I²C:
 
 ## 2. Conexión
 
-![alt text](fase-1.svg)
+![alt text](phase-1-architecture.svg)
 
 ```
 GY-521        ESP32 WROOM-32        Color   Función

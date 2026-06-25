@@ -26,3 +26,7 @@ La GY-521: placa de ruptura ("breakout") que lleva la MPU6050, le añade un regu
 La comunicación I2C: Creada por Philips, permite que multiples dispositivos o "chips" se comuniquen entre si a corta distancia. Hay dos lineas o cables principales para transferir información. SDA(Línea de Datos): Por donde se envia y reciben datos entre los dispositivos. SCL(Línea de Reloj): La señal de sincronización generada por el controlador para marcar el ritmo al que se transmiten los datos. Maestro: Dispositivo(algún tipo de microcontrolador como Arduino o ESP32), que inicia la comunicación, genera la señal de reloj y controla el flujo de datos. Esclavo: Son los periféricos(sensores, módulos de pantalla, memorias) que simplemente responden cuando el maestro los llama o solicitan enviar datos.
 
 ACK del esclavo: Acknowledge o acuse de recibo, es una señal de confirmación que emite un dispositivo esclavo en protocolos de comunicación serie (como I2C) para indicarle al maestro que ha recibido exitosamente un byte de datos o que esta listo para la siguiente operación.
+
+0x: Es un prefijo que le dice a C++ "lo que sigue esta en hexadecimal" (base 16), más no en decimal. Por ejemplo 0x68 = 6\*16 + 8 = 104 en decimal. Pero, ¿Por qué hexadecimal y no decimal? Porque los chips trabajan en bits y bytes, y el hex mapea limpio a binario. Cada digíto hex=exactamente 4 bits
+
+![alt text](hex-codes.png)
