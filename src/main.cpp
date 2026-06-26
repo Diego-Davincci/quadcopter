@@ -59,6 +59,11 @@ static const float ACC_LSB_PER_G = 16384.0f;
 static const float GYR_LSB_PER_DPS = 131.0f;
 
 // ---------- Lazo a dt fijo ----------
+/*
+    "LOOP_HZ" es cuántas veces por segundo queremos correr el ciclo: 200. De ahí calculamos el
+   periodo en microsegundos. Un segundo tiene 1.000.000us , divido entre 200 da 5000us entre
+   iteración e iteración.
+*/
 static const uint32_t LOOP_HZ = 200;                  // Tasa objetivo
 static const uint32_t LOOP_US = 1000000UL / LOOP_HZ;  // Periodo 5000us
 
@@ -66,13 +71,95 @@ static const uint32_t LOOP_US = 1000000UL / LOOP_HZ;  // Periodo 5000us
 // alpha alto  -> mas peso al giroscopio (corto plazo, suave/rapido)
 // 1 - alpha   -> peso al acelerometro   (largo plazo, corrige deriva)
 // constante de tiempo:  tau = alpha*dt/(1-alpha)
+/*
+    Es el peso de la fusión, significa "confia 98% en el giroscopio y 2% en el acelerómetro" en cada
+   paso.
+*/
 static const float ALPHA = 0.98f;
 
 // ---------- Estado ----------
-float gyroBiasX = 0, gyroBiasY = 0, gyroBiasY = 0;  // Bias del gyro (deg/s)
+/*
+    Estás son las variables de estado, son globales porque deben sobrevivir a cada loop().
+    gyroBias*: El sesgo del giroscopio, se mide una vez al arrancar y se resta siempre.
+    rollFused, pitchFused: El ángulo fusionado, la salida real del estimador. Cada iteración lo
+   actualiza partiendo de su valor previo. rollGyro, pitchGyro: El ángulo calculado solo integrando
+   el gyro. tPrev: Marca del tiempo de la ultima iteración
+*/
+float gyroBiasX = 0, gyroBiasY = 0, gyroBiasZ = 0;  // Bias del gyro (deg/s)
 float rollFused = 0, pitchFused = 0;                // Angulos fusionados (deg)
 float rollGyro = 0, pitchGyro = 0;                  // Solo gyro (evidencia T5)
 uint32_t tPrev = 0;
+
+// ---------- Acceso de bajo nivel al sensor ----------
+/* Aquí metemos un valor en un casillero (registro) del chip; */
+void mpuWrite(uint8_t reg, uint8_t val) {
+    Wire.beginTransmission(MPU_ADDR);
+    Wire.write(reg);
+    Wire.write(val);
+    Wire.endTransmission();
+}
+
+/* Leemos un casillero */
+uint8_t mpuRead8(uint8_t reg) {
+    Wire.beginTransmission(MPU_ADDR);
+    Wire.write(reg);
+    Wire.endTransmission(false);  // "repeated-start" no suelta el bus
+    Wire.requestFrom((int)MPU_ADDR, 1);
+    return Wire.read();
+}
+
+// Lee los 14 bytes (accel, temp, gyro) en una sola rafaga.
+// Importante: se leen a un buffer y luego se arman los int16, porque el
+// orden de evaluacion de Wire.read() dentro de una misma expresion no esta
+// garantizado en C++ y eso corromperia los bytes.
+/*
+   El "&" significa paso de referencia en la memoria, la función no recibe copias, sino las
+   variables reales de quien las llama, y las llena directamente. Es la forma de devolver seis
+   valores a la vez.
+   El cuerpo le dice al chip empieza en "0x3B" y dame 14 bytes seguidos, que son accel(6) + tem(2) +
+   gyro(6). Los seis ejes quedan capturados en el mismo instante.
+   Luego llegamos a la recombinación, cada eje son 16 bits guardados en 2 casilleros, parte alta
+   "_H" y parte baja "_L", para reconstruir el número: ax = (b[0] << 8) | b[1] b[0] << 8 corre la
+   parte alta 8bits a la izquierda y | b[1] encaja la parte de debajo
+ */
+void mpuReadRaw(int16_t& ax, int16_t& ay, int16_t az, int16_t& gx, int16_t& gy, int16_t gz) {
+    Wire.beginTransmission(MPU_ADDR);
+    Wire.write(REG_ACCEL_XOUT_H);
+    Wire.endTransmission(false);  // Mantenemos el bus abierto
+    Wire.requestFrom(int(MPU_ADDR), 14);
+    uint8_t b[14];
+    for (int i = 0; i < 14; i++) b[i] = Wire.read();
+    ax = (int16_t)((b[0] << 8) | b[1]);
+    ay = (int16_t)((b[0] << 8) | b[3]);
+    az = (int16_t)((b[0] << 8) | b[5]);
+    // b[6], b[7] = temperatura, no se usa en la fase 1
+    gx = (int16_t)((b[0] << 8) | b[9]);
+    gy = (int16_t)((b[0] << 8) | b[11]);
+    gz = (int16_t)((b[0] << 8) | b[13]);
+};
+
+// Promedia n muestras en reposo: el promedio del gyro ES su bias.
+/*
+   Un giroscopio real, perfectamente quieto no marca cero, marca un pequeño valor constante(el
+   bias). La idea para corregirlo es estadistica simple: Si el sensor esta inmovil, su velocidad
+   angular real es cero. Si promediamos 2000 muestras, el ruido aleatorio se cancela. Ese promedio
+   es el bias. El delay(1) espacia las muestras 1ms para que cubran un ratito de tiempo y no sean
+   2000 lecturas idénticas y al final dividimos entre la sensibilidad para guardarlo en °/s;
+*/
+void calibrarGiroscopio(uint16_t n = 2000) {
+    double sx = 0, sy = 0, sz = 0;
+    int16_t ax, ay, az, gx, gy, gz;
+    for (uint16_t i = 0; i < n; i++) {
+        mpuReadRaw(ax, ay, az, gx, gy, gz);
+        sx += gx;
+        sy += gy;
+        sz += gz;
+        delay(1);
+    }
+    gyroBiasX = (float)(sx / n) / GYR_LSB_PER_DPS;
+    gyroBiasY = (float)(sy / n) / GYR_LSB_PER_DPS;
+    gyroBiasZ = (float)(sz / n) / GYR_LSB_PER_DPS;
+};
 
 void setup() {
     Serial.begin(115200);  // Abrimos puerto a 115200 baudios
@@ -81,68 +168,82 @@ void setup() {
                          // como SDA, y GIO22 como SCL lo que activa la comunicación del ESP32 para
                          // I2C mediante esos pines en modo open-drain con pull-ups
     Wire.setClock(400000);  // I2C fast mode (400kHz). Fijamos la frecuencia de SCL a 400kHz
-    Serial.println("\n[Fase 1 / Etapa 1] Escaner I2C");
+
+    // T2: identidad. La MPU-6050 genuina reporta 0x68; muchos clones
+    // compatibles (familia MPU-6500/9250) reportan 0x98, 0x70 o 0x71.
+    // Todos comparten el mismo mapa de registros -> validos para este proyecto.
+    // (Hallazgo Etapa 1: este modulo reporta 0x98.)
+    uint8_t who = mpuRead8(REG_WHO_AM_I);  // La verificación de identidad tolerante a tu clon 0x98.
+    Serial.printf("\n[Fase 1] WHO_AM_I = 0x%02X\n", who);
+    if (who == 0x68 || who == 0x98) {
+        Serial.printf("---> IMU Compatible detectada. OK");
+    } else {
+        Serial.printf("---> ADVERTENCIA: identidad inesperada (0x%02X).\n", who);
+    }
+
+    // Despertar: PWR_MGMT_1 = 0x01 saca del modo sleep y usa el PLL con
+    // referencia del gyro X como reloj (mas estable que el oscilador interno).
+    mpuWrite(REG_PWR_MGMT_1, 0x01);  // Despertamos el chip. La IMU arranca dormida; este registro
+                                     // la activa y le asigna el reloj.
+    delay(100);
+    /* Fijamos los fondos de escala (para justificar las senbilidades previamente fijadas) y activa
+     * el filtro pasa-bajos interno para evitar el ruido mecánico */
+    mpuWrite(REG_ACCEL_CONFIG, 0x00);  // +/-2 g
+    mpuWrite(REG_GYRO_CONFIG, 0x00);   // +/-250 °/s
+    mpuWrite(REG_CONFIG, 0x03);        // DLPF ~44 Hz: filtra ruido mecanico
+    delay(50);
+
+    Serial.println("Calibrando el giroscopio... manten el sensor totalmente quieto");
+    calibrarGiroscopio();  // Mide el bias
+    Serial.printf("Bias gyro [°/s]: X=%.3f Y=%.3f Z=%.3f \n", gyroBiasX, gyroBiasY, gyroBiasZ);
+
+    // Semilla: inicializa el angulo fusionado con el del acelerometro para
+    // arrancar sin un salto inicial.
+    /*
+        Antes de entrar al lazo, inicializa el ángulo fusionado con lo que dice el acelerometro
+       ahora mismo. Si arrancaramos desde cero y el sensor estuviera inclinado, veríamos el ángulo
+       subir desde 0° hasta el valor real en los primeros segundos. Sembrandólo con el accel, el
+       ángulo arranca correcto sin salto.
+    */
+    int16_t ax, ay, az, gx, gy, gz;
+    mpuReadRaw(ax, ay, az, gx, gy, gz);
+    float axg = ax / ACC_LSB_PER_G, ayg = ay / ACC_LSB_PER_G, azg = az / ACC_LSB_PER_G;
+    rollFused = atan2f(ayg, azg) * 180.0f / PI;
+    pitchFused = atan2f(-axg, sqrtf(ayg * ayg + azg * azg)) * 180.0f / PI;
+
+    rollGyro = rollFused;
+    pitchGyro = pitchFused;
+
+    Serial.println("Melo, Telemetria abajo (separada por '|')");
+    tPrev = micros();
 }
 
 void loop() {
-    Serial.println("Escaneando bus I2C...");
-    uint8_t encontrados = 0;
-    /*
-        I2C tiene direcciones de 7bits = 128 valores posibles (0x00, 0x7F). 0x00 es la dirección del
-        broadcast en general y los valores 0x78-0x7F estan reservados por estándar, el rango util
-        del bucle es 1-126. Llamamos a cada puerta y vemos quien contesta
-    */
-    for (uint8_t addr = 1; addr < 127; addr++) {
-        /*
-            1. START Condition: el ESP32 jala del SDA hacía abajo mientras SCL esta en alto. todos
-           los esclavos del bus la detectan y se ponen en modo escucha.
-            2. Dirección + bit de escritura: el ESP32 transmite 7bits de addr seguidor de un 0.
-            3. Bit 9 - ACK: el ESP32 suelta el SDA, si existe un esclavo con esa dirección el jala
-            SDA a bajo en ese ciclo de reloj. Eso es ACK, si nadie jala, la línea queda en alto =
-            NACK (No-Acknowledge).
-           4. STOP Contidion: el ESP32 jala SDA hacia abajo, luego libera SCL, luego libera SDA. Esa
-           secuencia cierra la transacción.
-        */
-        Wire.beginTransmission(addr);
-        if (Wire.endTransmission() == 0) {  // 0 = ACK del esclavo
-            Serial.printf("Dispositivo en 0x%02X\n", addr);
-            encontrados++;
-        }
-    }
+    // --- Lazo a dt fijo, no bloqueante (semilla del tiempo de muestreo) ---
+    uint32_t now = micros();
+    if ((uint32_t)(now - tPrev) < LOOP_US) return;
+    float dt = (now - tPrev) * 1e-6f;  // dt real medido (prueba T8)
+    tPrev = now;
 
-    if (encontrados == 0) {
-        Serial.println("No se ha detectado el MPU6050, revisa cableado y GND");
-    } else {
-        // T2: lectura de WHO_AM_I en la direccion esperada
-        // Si encontramos el dispositivo, hacemos una segunda verificación, debe contestar nuestra
-        // MPU6050
-        Wire.beginTransmission(MPU_ADDR);
-        /*
-            ponemos 0x75 en el buffer de transmisión. Al llegar endTransmission(false), el ESP32
-           envia al esclavo:
-            - START + dirección 0x68 + bit escritura = ACK
-            - byte 0x75 (número de registro que queremos leer) = ACK
-            El argumento false le dice que no envie STOP al final, esto genera un 'repeated START',
-           el bus queda ocupado con 0x68, le decimos que va a continuar con una lectura sin soltar
-           el bus.
+    int16_t ax, ay, az, gx, gy, gz;
+    mpuReadRaw(ax, ay, az, gx, gy, gz);
 
-            Wire.requestFrom((int)MPU_ADDR, 1), Aquí el ESP32 hace una transacción de lectura:
-            - Repeated START + dirección 0x68 + bit de lectura (1) = ACK del esclavo
-            - El esclavo manda 1 byte (contenido del registro 0x75)
-            - El ESP32 responde con NACK (señal de que ya no quiere más bytes) + STOP
-        */
-        Wire.write(REG_WHO_AM_I);
-        if (Wire.endTransmission(false) == 0 && Wire.requestFrom((int)MPU_ADDR, 1) == 1) {
-            // El registro WHO_AM_I de la MPU6050 siempre contiene 0x68, el el número de
-            // identificación del chip
-            uint8_t who = Wire.read();
-            Serial.printf("  WHO_AM_I (0x75) en 0x68 = 0x%02X (esperado 0x68)\n", who);
-            if (who == 0x98) {
-                Serial.printf("Puerto registrado 0x98, El MPU6050 utilizado es una replica");
-            }
-        }
-    }
+    // Conversion a unidades fisicas
+    float axg = ax / ACC_LSB_PER_G;
+    float ayg = ay / ACC_LSB_PER_G;
+    float azg = az / ACC_LSB_PER_G;
+    float gxd = gx / GYR_LSB_PER_DPS - gyroBiasX;  // °/s, sin bias
+    float gyd = gy / GYR_LSB_PER_DPS - gyroBiasY;
+    // gz no se usa: el yaw no es observable sin magnetometro
 
-    Serial.println("---");
-    delay(2000);
+    // Angulo por acelerometro (referencia absoluta, ruidosa)
+    float rollAcc = atan2f(ayg, azg) * 180.0f / PI;
+    float pitchAcc = atan2f(-axg, sqrtf(ayg * ayg + azg * azg)) * 180.0f / PI;
+
+    // Angulo por giroscopio solo (integracion pura: deriva, para T5)
+    rollGyro += gxd * dt;
+    pitchGyro += gyd * dt;
+
+    // Fusion: filtro complementario
+    rollFused = ALPHA * (rollFused + gxd * dt);
 }
